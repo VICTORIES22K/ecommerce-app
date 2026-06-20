@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ShopZone - Home</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <nav class="navbar">
+    <a href="index.html" class="logo">🛍️ ShopZone</a>
+    <div class="nav-links">
+      <input type="text" id="searchInput" placeholder="Search products..." class="search-input" />
+      <select id="categoryFilter" class="filter-select">
+        <option value="">All Categories</option>
+        <option value="Electronics">Electronics</option>
+        <option value="Footwear">Footwear</option>
+        <option value="Accessories">Accessories</option>
+        <option value="Bags">Bags</option>
+        <option value="Clothing">Clothing</option>
+      </select>
+      <a href="cart.html" class="btn btn-outline">🛒 Cart (<span id="cartCount">0</span>)</a>
+      <a href="orders.html" class="btn btn-outline" id="ordersLink" style="display:none">My Orders</a>
+      <a href="admin.html" class="btn btn-outline" id="adminLink" style="display:none">Admin</a>
+      <a href="login.html" class="btn btn-primary" id="loginLink">Login</a>
+      <button class="btn btn-danger" id="logoutBtn" style="display:none" onclick="logout()">Logout</button>
+    </div>
+  </nav>
+
+  <main class="container">
+    <h1 class="page-title">Featured Products</h1>
+    <div id="productGrid" class="product-grid"></div>
+    <div id="loadingMsg" class="loading">Loading products...</div>
+    <div id="errorMsg" class="error-msg" style="display:none"></div>
+  </main>
+
+  <footer class="footer">
+    <p>&copy; 2024 ShopZone. All rights reserved.</p>
+  </footer>
+
+  <script src="script.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      updateNav();
+      updateCartCount();
+      loadProducts();
+
+      document.getElementById('searchInput').addEventListener('input', debounce(loadProducts, 400));
+      document.getElementById('categoryFilter').addEventListener('change', loadProducts);
+    });
+
+    async function loadProducts() {
+      const search = document.getElementById('searchInput').value;
+      const category = document.getElementById('categoryFilter').value;
+      const grid = document.getElementById('productGrid');
+      const loading = document.getElementById('loadingMsg');
+      const errorMsg = document.getElementById('errorMsg');
+
+      loading.style.display = 'block';
+      grid.innerHTML = '';
+      errorMsg.style.display = 'none';
+
+      try {
+        let url = `${API}/products?`;
+        if (search) url += `search=${encodeURIComponent(search)}&`;
+        if (category) url += `category=${encodeURIComponent(category)}`;
+
+        const res = await fetch(url);
+        const products = await res.json();
+        loading.style.display = 'none';
+
+        if (!products.length) {
+          grid.innerHTML = '<p class="no-results">No products found.</p>';
+          return;
+        }
+
+        products.forEach(p => {
+          const card = document.createElement('div');
+          card.className = 'product-card';
+          card.innerHTML = `
+            <img src="${p.image || 'https://via.placeholder.com/300x200'}" alt="${p.name}" class="product-img" />
+            <div class="product-info">
+              <span class="product-category">${p.category}</span>
+              <h3 class="product-name">${p.name}</h3>
+              <p class="product-desc">${p.description}</p>
+              <div class="product-footer">
+                <span class="product-price">$${p.price.toFixed(2)}</span>
+                <span class="product-stock ${p.stock === 0 ? 'out-of-stock' : ''}">${p.stock > 0 ? `${p.stock} in stock` : 'Out of stock'}</span>
+              </div>
+              <button class="btn btn-primary btn-full mt-1" onclick="addToCart('${p._id}', '${p.name.replace(/'/g,"\\'")}', ${p.price}, '${p.image}')" ${p.stock === 0 ? 'disabled' : ''}>
+                ${p.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
+              </button>
+            </div>
+          `;
+          grid.appendChild(card);
+        });
+      } catch (err) {
+        loading.style.display = 'none';
+        errorMsg.textContent = 'Failed to load products. Make sure the backend is running.';
+        errorMsg.style.display = 'block';
+      }
+    }
+
+    function debounce(fn, delay) {
+      let t;
+      return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), delay); };
+    }
+  </script>
+</body>
+</html>

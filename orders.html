@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ShopZone - My Orders</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <nav class="navbar">
+    <a href="index.html" class="logo">🛍️ ShopZone</a>
+    <div class="nav-links">
+      <a href="index.html" class="btn btn-outline">← Shop</a>
+      <a href="cart.html" class="btn btn-outline">🛒 Cart (<span id="cartCount">0</span>)</a>
+      <a href="login.html" class="btn btn-primary" id="loginLink">Login</a>
+      <button class="btn btn-danger" id="logoutBtn" style="display:none" onclick="logout()">Logout</button>
+    </div>
+  </nav>
+
+  <main class="container">
+    <h1 class="page-title">My Orders</h1>
+    <div id="ordersContainer"></div>
+  </main>
+
+  <script src="script.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      updateNav();
+      updateCartCount();
+      if (!getToken()) { window.location.href = 'login.html'; return; }
+
+      const container = document.getElementById('ordersContainer');
+      container.innerHTML = '<p class="loading">Loading orders...</p>';
+
+      try {
+        const res = await fetch(`${API}/orders/myorders`, {
+          headers: { 'Authorization': `Bearer ${getToken()}` }
+        });
+        const orders = await res.json();
+
+        if (!orders.length) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-icon">📦</div>
+              <h3>No orders yet</h3>
+              <p>Start shopping to see your orders here!</p>
+              <a href="index.html" class="btn btn-primary">Shop Now</a>
+            </div>`;
+          return;
+        }
+
+        container.innerHTML = '';
+        orders.forEach(order => {
+          const card = document.createElement('div');
+          card.className = 'order-card';
+          card.innerHTML = `
+            <div class="order-header">
+              <div>
+                <strong>Order #${order._id.slice(-8).toUpperCase()}</strong>
+                <span class="order-date">${new Date(order.createdAt).toLocaleDateString()}</span>
+              </div>
+              <span class="status-badge status-${order.status.toLowerCase()}">${order.status}</span>
+            </div>
+            <div class="order-items-list">
+              ${order.items.map(i => `<span class="order-item-chip">${i.name} × ${i.quantity}</span>`).join('')}
+            </div>
+            <div class="order-meta">
+              <span>📍 ${order.shippingAddress.city}, ${order.shippingAddress.country}</span>
+              <span>💳 ${order.paymentMethod}</span>
+              <strong>Total: $${order.totalPrice.toFixed(2)}</strong>
+            </div>
+          `;
+          container.appendChild(card);
+        });
+      } catch (err) {
+        container.innerHTML = '<p class="error-msg">Failed to load orders.</p>';
+      }
+    });
+  </script>
+</body>
+</html>

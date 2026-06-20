@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ShopZone - Cart</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <nav class="navbar">
+    <a href="index.html" class="logo">🛍️ ShopZone</a>
+    <div class="nav-links">
+      <a href="index.html" class="btn btn-outline">← Continue Shopping</a>
+      <a href="login.html" class="btn btn-primary" id="loginLink">Login</a>
+      <button class="btn btn-danger" id="logoutBtn" style="display:none" onclick="logout()">Logout</button>
+    </div>
+  </nav>
+
+  <main class="container">
+    <h1 class="page-title">Shopping Cart</h1>
+    <div class="cart-layout">
+      <div id="cartItems" class="cart-items"></div>
+      <div class="cart-summary" id="cartSummary" style="display:none">
+        <h3>Order Summary</h3>
+        <div class="summary-row"><span>Subtotal</span><span id="subtotal">$0.00</span></div>
+        <div class="summary-row"><span>Shipping</span><span>Free</span></div>
+        <div class="summary-row total-row"><span>Total</span><span id="cartTotal">$0.00</span></div>
+        <a href="checkout.html" class="btn btn-primary btn-full mt-1">Proceed to Checkout</a>
+        <button class="btn btn-danger btn-full mt-1" onclick="clearCart()">Clear Cart</button>
+      </div>
+    </div>
+  </main>
+
+  <script src="script.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      updateNav();
+      renderCart();
+    });
+
+    function renderCart() {
+      const cart = getCart();
+      const container = document.getElementById('cartItems');
+      const summary = document.getElementById('cartSummary');
+
+      if (!cart.length) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">🛒</div>
+            <h3>Your cart is empty</h3>
+            <p>Add some products to get started!</p>
+            <a href="index.html" class="btn btn-primary">Shop Now</a>
+          </div>`;
+        return;
+      }
+
+      summary.style.display = 'block';
+      let total = 0;
+      container.innerHTML = '';
+
+      cart.forEach((item, idx) => {
+        const itemTotal = item.price * item.quantity;
+        total += itemTotal;
+        const div = document.createElement('div');
+        div.className = 'cart-item';
+        div.innerHTML = `
+          <img src="${item.image || 'https://via.placeholder.com/80'}" alt="${item.name}" class="cart-item-img"/>
+          <div class="cart-item-info">
+            <h4>${item.name}</h4>
+            <p class="cart-item-price">$${item.price.toFixed(2)} each</p>
+          </div>
+          <div class="cart-item-controls">
+            <button class="qty-btn" onclick="changeQty(${idx}, -1)">−</button>
+            <span class="qty-display">${item.quantity}</span>
+            <button class="qty-btn" onclick="changeQty(${idx}, 1)">+</button>
+          </div>
+          <div class="cart-item-total">$${itemTotal.toFixed(2)}</div>
+          <button class="btn btn-danger btn-sm" onclick="removeItem(${idx})">✕</button>
+        `;
+        container.appendChild(div);
+      });
+
+      document.getElementById('subtotal').textContent = `$${total.toFixed(2)}`;
+      document.getElementById('cartTotal').textContent = `$${total.toFixed(2)}`;
+    }
+
+    function changeQty(idx, delta) {
+      const cart = getCart();
+      cart[idx].quantity += delta;
+      if (cart[idx].quantity < 1) cart.splice(idx, 1);
+      saveCart(cart);
+      updateCartCount();
+      renderCart();
+    }
+
+    function removeItem(idx) {
+      const cart = getCart();
+      cart.splice(idx, 1);
+      saveCart(cart);
+      updateCartCount();
+      renderCart();
+    }
+  </script>
+</body>
+</html>
