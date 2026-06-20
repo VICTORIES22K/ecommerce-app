@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ShopZone - Admin</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <nav class="navbar">
+    <a href="index.html" class="logo">🛍️ ShopZone</a>
+    <div class="nav-links">
+      <span id="adminName" class="nav-user"></span>
+      <a href="index.html" class="btn btn-outline">View Shop</a>
+      <button class="btn btn-danger" onclick="logout()">Logout</button>
+    </div>
+  </nav>
+
+  <main class="container">
+    <h1 class="page-title">Admin Dashboard</h1>
+    <div class="admin-tabs">
+      <button class="tab-btn active" onclick="showTab('products')">📦 Products</button>
+      <button class="tab-btn" onclick="showTab('orders')">🧾 Orders</button>
+    </div>
+
+    <!-- Products Tab -->
+    <div id="productsTab" class="tab-content">
+      <div class="tab-header">
+        <h2>Product Management</h2>
+        <button class="btn btn-primary" onclick="openProductModal()">+ Add Product</button>
+      </div>
+      <div id="adminProductList"></div>
+    </div>
+
+    <!-- Orders Tab -->
+    <div id="ordersTab" class="tab-content" style="display:none">
+      <h2>All Orders</h2>
+      <div id="adminOrderList"></div>
+    </div>
+  </main>
+
+  <!-- Product Modal -->
+  <div id="productModal" class="modal" style="display:none">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modalTitle">Add Product</h3>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div id="modalAlert" class="alert" style="display:none"></div>
+      <div class="form-group"><label>Name</label><input type="text" id="pName" class="form-input"/></div>
+      <div class="form-group"><label>Description</label><textarea id="pDesc" class="form-input" rows="3"></textarea></div>
+      <div class="form-row">
+        <div class="form-group"><label>Price ($)</label><input type="number" id="pPrice" class="form-input" min="0" step="0.01"/></div>
+        <div class="form-group"><label>Stock</label><input type="number" id="pStock" class="form-input" min="0"/></div>
+      </div>
+      <div class="form-group">
+        <label>Category</label>
+        <select id="pCategory" class="form-input">
+          <option>Electronics</option><option>Footwear</option><option>Accessories</option>
+          <option>Bags</option><option>Clothing</option><option>Other</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Image URL</label><input type="text" id="pImage" class="form-input" placeholder="https://..."/></div>
+      <input type="hidden" id="pId"/>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveProduct()">Save Product</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const user = getUser();
+      if (!user || !user.isAdmin) { window.location.href = 'login.html'; return; }
+      document.getElementById('adminName').textContent = `👤 ${user.name}`;
+      loadAdminProducts();
+    });
+
+    function showTab(tab) {
+      document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(tab + 'Tab').style.display = 'block';
+      event.target.classList.add('active');
+      if (tab === 'orders') loadAdminOrders();
+    }
+
+    async function loadAdminProducts() {
+      const container = document.getElementById('adminProductList');
+      container.innerHTML = '<p class="loading">Loading...</p>';
+      try {
+        const res = await fetch(`${API}/products`);
+        const products = await res.json();
+        container.innerHTML = '';
+        const table = document.createElement('table');
+        table.className = 'admin-table';
+        table.innerHTML = `<thead><tr><th>Image</th><th>Name</th><th>Category</th><th>Price</th><th>Stock</th><th>Actions</th></tr></thead>`;
+        const tbody = document.createElement('tbody');
+        products.forEach(p => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><img src="${p.image || 'https://via.placeholder.com/50'}" width="50" height="50" style="object-fit:cover;border-radius:4px"/></td>
+            <td>${p.name}</td>
+            <td><span class="product-category">${p.category}</span></td>
+            <td>$${p.price.toFixed(2)}</td>
+            <td>${p.stock}</td>
+            <td>
+              <button class="btn btn-sm btn-outline" onclick='openProductModal(${JSON.stringify(p)})'>Edit</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteProduct('${p._id}')">Delete</button>
+            </td>`;
+          tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        container.appendChild(table);
+      } catch (err) {
+        container.innerHTML = '<p class="error-msg">Failed to load products.</p>';
+      }
+    }
+
+    async function loadAdminOrders() {
+      const container = document.getElementById('adminOrderList');
+      container.innerHTML = '<p class="loading">Loading...</p>';
+      try {
+        const res = await fetch(`${API}/orders`, {
+          headers: { 'Authorization': `Bearer ${getToken()}` }
+        });
+        const orders = await res.json();
+        container.innerHTML = '';
+        if (!orders.length) { container.innerHTML = '<p>No orders found.</p>'; return; }
+
+        const table = document.createElement('table');
+        table.className = 'admin-table';
+        table.innerHTML = `<thead><tr><th>Order ID</th><th>Customer</th><th>Items</th><th>Total</th><th>Status</th><th>Date</th><th>Update</th></tr></thead>`;
+        const tbody = document.createElement('tbody');
+        orders.forEach(o => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>#${o._id.slice(-8).toUpperCase()}</td>
+            <td>${o.user ? o.user.name : 'N/A'}<br><small>${o.user ? o.user.email : ''}</small></td>
+            <td>${o.items.map(i => `${i.name}×${i.quantity}`).join(', ')}</td>
+            <td>$${o.totalPrice.toFixed(2)}</td>
+            <td><span class="status-badge status-${o.status.toLowerCase()}">${o.status}</span></td>
+            <td>${new Date(o.createdAt).toLocaleDateString()}</td>
+            <td>
+              <select class="form-input select-sm" onchange="updateOrderStatus('${o._id}', this.value)">
+                ${['Pending','Processing','Shipped','Delivered','Cancelled'].map(s =>
+                  `<option ${s === o.status ? 'selected' : ''}>${s}</option>`).join('')}
+              </select>
+            </td>`;
+          tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        container.appendChild(table);
+      } catch (err) {
+        container.innerHTML = '<p class="error-msg">Failed to load orders.</p>';
+      }
+    }
+
+    function openProductModal(product = null) {
+      document.getElementById('productModal').style.display = 'flex';
+      document.getElementById('modalAlert').style.display = 'none';
+      if (product) {
+        document.getElementById('modalTitle').textContent = 'Edit Product';
+        document.getElementById('pId').value = product._id;
+        document.getElementById('pName').value = product.name;
+        document.getElementById('pDesc').value = product.description;
+        document.getElementById('pPrice').value = product.price;
+        document.getElementById('pStock').value = product.stock;
+        document.getElementById('pCategory').value = product.category;
+        document.getElementById('pImage').value = product.image || '';
+      } else {
+        document.getElementById('modalTitle').textContent = 'Add Product';
+        document.getElementById('pId').value = '';
+        ['pName','pDesc','pPrice','pStock','pImage'].forEach(id => document.getElementById(id).value = '');
+      }
+    }
+
+    function closeModal() {
+      document.getElementById('productModal').style.display = 'none';
+    }
+
+    async function saveProduct() {
+      const id = document.getElementById('pId').value;
+      const alertEl = document.getElementById('modalAlert');
+      const body = {
+        name: document.getElementById('pName').value.trim(),
+        description: document.getElementById('pDesc').value.trim(),
+        price: parseFloat(document.getElementById('pPrice').value),
+        stock: parseInt(document.getElementById('pStock').value),
+        category: document.getElementById('pCategory').value,
+        image: document.getElementById('pImage').value.trim()
+      };
+      if (!body.name || !body.description || isNaN(body.price)) {
+        alertEl.textContent = 'Name, description and price are required.';
+        alertEl.className = 'alert alert-error';
+        alertEl.style.display = 'block';
+        return;
+      }
+      try {
+        const url = id ? `${API}/products/${id}` : `${API}/products`;
+        const method = id ? 'PUT' : 'POST';
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+          body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (!res.ok) { alertEl.textContent = data.message; alertEl.className = 'alert alert-error'; alertEl.style.display = 'block'; return; }
+        closeModal();
+        loadAdminProducts();
+      } catch (err) {
+        alertEl.textContent = 'Error saving product.';
+        alertEl.className = 'alert alert-error';
+        alertEl.style.display = 'block';
+      }
+    }
+
+    async function deleteProduct(id) {
+      if (!confirm('Delete this product?')) return;
+      await fetch(`${API}/products/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${getToken()}` }
+      });
+      loadAdminProducts();
+    }
+
+    async function updateOrderStatus(id, status) {
+      await fetch(`${API}/orders/${id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+        body: JSON.stringify({ status })
+      });
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ShopZone - Register</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <nav class="navbar">
+    <a href="index.html" class="logo">🛍️ ShopZone</a>
+    <div class="nav-links">
+      <a href="index.html" class="btn btn-outline">← Back to Shop</a>
+    </div>
+  </nav>
+
+  <main class="container auth-container">
+    <div class="auth-card">
+      <h2 class="auth-title">Create Account</h2>
+      <p class="auth-subtitle">Join ShopZone today</p>
+      <div id="alertMsg" class="alert" style="display:none"></div>
+      <div class="form-group">
+        <label>Full Name</label>
+        <input type="text" id="name" placeholder="John Doe" class="form-input"/>
+      </div>
+      <div class="form-group">
+        <label>Email Address</label>
+        <input type="email" id="email" placeholder="you@example.com" class="form-input"/>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="password" placeholder="Min. 6 characters" class="form-input"/>
+      </div>
+      <div class="form-group">
+        <label>Confirm Password</label>
+        <input type="password" id="confirmPassword" placeholder="Repeat password" class="form-input"/>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="handleRegister()">Create Account</button>
+      <p class="auth-switch">Already have an account? <a href="login.html">Login</a></p>
+    </div>
+  </main>
+
+  <script src="script.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      if (getToken()) window.location.href = 'index.html';
+    });
+
+    async function handleRegister() {
+      const name = document.getElementById('name').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+      const alert = document.getElementById('alertMsg');
+
+      if (!name || !email || !password || !confirmPassword) {
+        showAlert(alert, 'Please fill in all fields.', 'error'); return;
+      }
+      if (password.length < 6) {
+        showAlert(alert, 'Password must be at least 6 characters.', 'error'); return;
+      }
+      if (password !== confirmPassword) {
+        showAlert(alert, 'Passwords do not match.', 'error'); return;
+      }
+
+      try {
+        const res = await fetch(`${API}/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, password })
+        });
+        const data = await res.json();
+        if (!res.ok) { showAlert(alert, data.message, 'error'); return; }
+
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data));
+        window.location.href = 'index.html';
+      } catch (err) {
+        showAlert(alert, 'Connection error. Is the server running?', 'error');
+      }
+    }
+
+    function showAlert(el, msg, type) {
+      el.textContent = msg;
+      el.className = `alert alert-${type}`;
+      el.style.display = 'block';
+    }
+  </script>
+</body>
+</html>
